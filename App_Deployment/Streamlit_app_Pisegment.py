@@ -23,6 +23,7 @@ file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 if file is not None:
     file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, 1)
+    st.write('Segmenting in a sec...')
     seg_img = Pipeline(img)
     st.image(seg_img)
 
