@@ -1,46 +1,9 @@
 import cv2
 import numpy as np
+import tempfile
+import streamlit as st
 
-def extract_frames(video_path, output_path):
-    # Open the video file
-    video = cv2.VideoCapture(video_path)
-
-    # Get the frames per second (fps) of the video
-    fps = video.get(cv2.CAP_PROP_FPS)
-    # print(fps)
-
-    # Initialize frame counter and time
-    frame_count = 0
-    time = 0
-
-    while True:
-        # Read a frame from the video
-        ret, frame = video.read()
-        # print(ret)
-
-        # If frame was not successfully read, end the loop
-        if not ret:
-            break
-
-        # Calculate the time in seconds
-        time = frame_count / fps
-        # print(int(time))
-
-        # Check if the current frame's time is a multiple of 1 second
-        if int(time) % 1 == 0:
-            # Write the frame to an image file
-            frame_output_path = f"{output_path}/frame_{int(time)}.jpg"
-            cv2.imwrite(frame_output_path, frame)
-
-        # Increment the frame counter
-        frame_count += 10
-        # print('Frame')
-
-    # Release the video file
-    video.release()
-
-#def frame_to_video(folder_path):
-    # Sorting the frames in
+# CCELD Functions
 
 def apply_area_thresholding(crack_mask, Tarea=10):
     # Find connected components and their stats (including area)
@@ -228,3 +191,156 @@ def Pipeline (image, kernel = (31,31), div=0.4, Tarea = 12, Tlength = 43, Tradiu
     sk_crack_mask = cv2.bitwise_or(restored_image*255, rad)
     
     return sk_crack_mask
+
+
+# Video Segmentation Functions
+def extract_frames(video_path, output_path): ## CONTINUE LATER TO IMPLEMENT LIMITED FRAME EXTRACTION
+    '''The state of the code before (it's below or switch commit to find) wasn't actually controlling 
+    anything, it was just overwriting file names. Basically, it used if int(time)%1==0 to save a frame 
+    but then saved the name as int(time) and incremented frame count by 10. Basically int(0/30)=0, 
+    int(10/30) = 0 and int(20/30) = 0. So, it was just saving the last frame and discarding the rest. 
+    I had to update the code to save just 15 frames per sec'''
+
+    # Open the video file
+    video = cv2.VideoCapture(video_path)
+
+    # Get total frame count
+    total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # Get the frames per second (fps) of the video
+    fps = video.get(cv2.CAP_PROP_FPS)
+    print(fps)
+
+    # The idea is to save 15 frames in a second but we want to save just the middle 5 for each set of 
+    # 10 for a 30 fps video
+
+    # Initialize frame counter and time
+    frame_count = 0
+
+    while True:
+        
+        # This reads a single frame from a video, ret returns true if frame is read successfully otherwise
+        # like at the end of the video, it returns false. 
+        ret, frame = video.read()
+        frame_count+=1
+
+        # If frame was not successfully read, end the loop
+        if not ret:
+            break
+
+        # The idea of the frame count is to be able to control how many frames we process in a second
+        # Initially at frame count = 0 and fps = 30, time will take a value of 0...
+        time = frame_count / fps
+        print(frame_count, time)
+        
+        if int(time) % 1 == 0:
+            counter +=1
+            # Write the frame to an image file
+            frame_output_path = f"{output_path}/frame_{time}.jpg"
+            print(frame_output_path)
+            cv2.imwrite(frame_output_path, frame)
+
+        # Increment the frame counter
+        frame_count += 10
+        # print('Frame')
+    print(counter)
+    # Release the video file
+    video.release()
+
+# The video tested actually has 78 frames got that by counting the while loop
+# extract_frames("crack_vid.mp4", "Frames")
+
+
+def vid_create(uploaded_file): 
+    '''This takes an uploaded video, loads it, extracts and preprocesses all the frames and packs
+    it back into a video'''
+
+    if uploaded_file is not None:
+        # Save the uploaded video to a temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_file.write(uploaded_file.read())
+
+        # Read video from the temporary file
+        video_capture = cv2.VideoCapture(temp_file.name)
+
+        # Get video details
+        fps = video_capture.get(cv2.CAP_PROP_FPS)
+        width = 400
+        height = 400
+        #width = int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        #height = int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        # Create video writer with 'mp4v' fourcc code
+        output_path = "output_video.mp4"
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        video_writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+        with st.spinner("Processing frames..."):
+            # Process and write frames
+            while True:
+                ret, frame = video_capture.read()
+
+                if not ret:
+                    break
+
+                processed_frame = Pipeline(frame)
+                #processed_frame = cv2.resize(processed_frame, (width, height))
+                #st.write(processed_frame.shape)
+
+                # Encode and write processed frame to the output video
+                video_writer.write(cv2.cvtColor(processed_frame, cv2.COLOR_GRAY2BGR))
+
+            # Release video objects
+            video_capture.release()
+            video_writer.release()
+
+            # Close the temporary file
+            temp_file.close()
+
+            st.text("Processing complete!")         
+
+
+## Old functions
+
+def extract_frames(video_path, output_path): # Previous function
+    # Open the video file
+    video = cv2.VideoCapture(video_path)
+
+    # Get the frames per second (fps) of the video
+    fps = video.get(cv2.CAP_PROP_FPS)
+    # print(fps)
+
+    # Initialize frame counter and time
+    frame_count = 0
+    time = 0
+
+    # Explaining the code below, most videos shoot at 60fps which is what we get above. Now, we initialize 
+    # Two variables frame_count and time. Other parts of the code is explained below...
+    while True:
+        # This reads a single frame from a video, ret returns true if frame is read successfully otherwise
+        # like at the end of the video, it returns false. 
+        ret, frame = video.read()
+
+        # If frame was not successfully read, end the loop
+        if not ret:
+            break
+
+        # The idea of the frame count is to be able to control how many frames we process in a second
+        # Initially at frame count = 0 and fps = 60, time will take a value of 0...
+        time = frame_count / fps
+
+        # int(anyfraction) will yield a full integer so for any value basically, the condition below
+        # evaluates to true but the idea is we control the interval of this evaluation, hence, we control 
+        # how many frames are saved. 
+        # Let's assume there's 60fps in the video, if we just loop through and save the frames, 
+        if int(time) % 1 == 0:
+            # Write the frame to an image file
+            frame_output_path = f"{output_path}/frame_{int(time)}.jpg"
+            cv2.imwrite(frame_output_path, frame)
+
+        # Increment the frame counter
+        frame_count += 10
+        # print('Frame')
+
+    # Release the video file
+    video.release()
